@@ -1,0 +1,76 @@
+services:
+  auth-api:
+    build: auth/
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    env_file:
+      - path: auth/.env
+    networks:
+      - auth
+      - interconnect
+    ports:
+      - "5000:8080"
+    restart: unless-stopped
+
+  auth-db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_DB=auth
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+    networks:
+      - auth
+    restart: unless-stopped
+    volumes:
+      - auth-postgres-data:/var/lib/postgresql/data
+
+
+  orders-api:
+    build: orders/
+    depends_on:
+      orders-db:
+        condition: service_healthy
+    env_file:
+      - path: orders/.env
+    networks:
+      - orders
+      - interconnect
+    ports:
+      - "5500:8080"
+    restart: unless-stopped
+
+  orders-tasks:
+    build: orders/
+    depends_on:
+      orders-db:
+        condition: service_healthy
+    env_file:
+      - path: orders/.env
+    networks:
+      - orders
+    restart: unless-stopped
+    command: [ "-cp", "app.jar", "com.tickets.OrdersProcessorKt" ]
+
+  orders-db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_DB=orders
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+    networks:
+      - orders
+    restart: unless-stopped
+    volumes:
+      - orders-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  auth-postgres-data:
+  orders-postgres-data:
+
+networks:
+  auth:
+  orders:
+  interconnect:
